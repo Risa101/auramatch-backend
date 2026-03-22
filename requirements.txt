@@ -1,0 +1,8 @@
+Flask>=2.0
+flask-cors>=3.0
+pymysql>=1.0
+python-dotenv>=0.21
+certifi>=2023.0.0
+itsdangerous>=2.0
+google-auth>=2.0
+gunicorn>=20.0
