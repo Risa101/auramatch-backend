@@ -42,6 +42,35 @@ def save_analysis(data: dict):
         except Exception:
             pass
 
+def delete_analysis_by_id(analysis_id: int, user_id: int):
+    try:
+        conn = get_conn()
+    except Exception as e:
+        return {"success": False, "message": f"DB connection failed: {str(e)}"}
+
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "DELETE FROM analysis_history WHERE history_id = %s AND user_id = %s",
+            (analysis_id, user_id)
+        )
+        conn.commit()
+        if cur.rowcount == 0:
+            return {"success": False, "message": "Record not found"}
+        return {"success": True, "message": "Deleted successfully"}
+    except Exception as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return {"success": False, "message": str(e)}
+    finally:
+        try:
+            cur.close()
+            conn.close()
+        except Exception:
+            pass
+
 def get_history_by_user(user_id: int):
     conn = get_conn()
     # ใช้ DictCursor เพื่อให้ผลลัพธ์เป็น dict

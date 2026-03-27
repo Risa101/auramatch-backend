@@ -9,10 +9,11 @@ def get_all_promotion():
         with get_conn() as conn:
             with conn.cursor() as cur:  # DictCursor
                 sql = """
-                    SELECT 
+                    SELECT
                         p.promotion_id,
                         p.promo_name,
                         p.promo_detail,
+                        p.brand_id,
                         p.discount_percent,
                         p.coupon_code,
                         p.min_price,

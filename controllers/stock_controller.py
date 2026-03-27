@@ -6,14 +6,17 @@ from services.stock_service import (
     update_stock,
     delete_stock,
 )
+from services.auth_guard import require_admin
 
 stock_bp = Blueprint("stock_bp", __name__)
 
 @stock_bp.route("/stock", methods=["GET"])
+@require_admin
 def list_stock():
     return jsonify(get_all_stock()), 200
 
 @stock_bp.route("/stock", methods=["POST"])
+@require_admin
 def create_stock():
     data = request.get_json(silent=True)
     if not data or "product_id" not in data or "quantity" not in data:
@@ -23,6 +26,7 @@ def create_stock():
     return jsonify({"stock_id": new_id}), 201
 
 @stock_bp.route("/stock/<int:sid>", methods=["GET"])
+@require_admin
 def get_stock(sid):
     row = get_stock_by_id(sid)
     if not row:
@@ -30,6 +34,7 @@ def get_stock(sid):
     return jsonify(row), 200
 
 @stock_bp.route("/stock/<int:sid>", methods=["PUT"])
+@require_admin
 def update_stock_route(sid):
     data = request.get_json(silent=True)
     if not update_stock(sid, data):
@@ -37,6 +42,7 @@ def update_stock_route(sid):
     return jsonify({"message": "updated"}), 200
 
 @stock_bp.route("/stock/<int:sid>", methods=["DELETE"])
+@require_admin
 def delete_stock_route(sid):
     if not delete_stock(sid):
         return jsonify({"error": "not found"}), 404

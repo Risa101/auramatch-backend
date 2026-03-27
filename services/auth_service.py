@@ -3,7 +3,9 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 
 def _get_serializer():
-    secret = os.getenv("SECRET_KEY", "dev-secret")
+    secret = os.getenv("SECRET_KEY")
+    if not secret:
+        raise RuntimeError("SECRET_KEY environment variable is not set")
     return URLSafeTimedSerializer(secret, salt="auramatch-auth")
 
 

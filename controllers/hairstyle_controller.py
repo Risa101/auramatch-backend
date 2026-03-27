@@ -6,6 +6,7 @@ from services.hairstyle_service import (
     update_hairstyle,
     delete_hairstyle,
 )
+from services.auth_guard import require_admin
 
 hairstyle_bp = Blueprint("hairstyle_bp", __name__)
 
@@ -16,6 +17,7 @@ def list_hairstyles():
 
 
 @hairstyle_bp.route("/hairstyles", methods=["POST"])
+@require_admin
 def create_hairstyle():
     data = request.get_json(silent=True)
 
@@ -52,6 +54,7 @@ def get_hairstyle(pid: int):
 
 
 @hairstyle_bp.route("/hairstyles/<int:pid>", methods=["PUT"])
+@require_admin
 def update_hairstyle_route(pid: int):
     data = request.get_json(silent=True)
 
@@ -70,6 +73,7 @@ def update_hairstyle_route(pid: int):
 
 
 @hairstyle_bp.route("/hairstyles/<int:pid>", methods=["DELETE"])
+@require_admin
 def delete_hairstyle_route(pid: int):
     deleted = delete_hairstyle(pid)
 

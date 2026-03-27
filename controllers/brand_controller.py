@@ -6,6 +6,7 @@ from services.brand_service import (
     update_brand,
     delete_brand
 )
+from services.auth_guard import require_admin
 
 brand_bp = Blueprint("brand_bp", __name__)
 
@@ -25,6 +26,7 @@ def api_get_brand_by_id(bid):
 
 
 @brand_bp.route("/brands", methods=["POST"])
+@require_admin
 def api_insert_brand():
     data = request.json
     name = data.get("brand_name")
@@ -34,13 +36,11 @@ def api_insert_brand():
         return jsonify({"message": "brand_name and logo_path required"}), 400
 
     new_id = insert_brand(name, logo)
-    return jsonify({
-        "message": "Brand created",
-        "brand_id": new_id
-    }), 201
+    return jsonify({"message": "Brand created", "brand_id": new_id}), 201
 
 
 @brand_bp.route("/brands/<int:bid>", methods=["PUT"])
+@require_admin
 def api_update_brand(bid):
     data = request.json
     updated = update_brand(bid, data)
@@ -52,6 +52,7 @@ def api_update_brand(bid):
 
 
 @brand_bp.route("/brands/<int:bid>", methods=["DELETE"])
+@require_admin
 def api_delete_brand(bid):
     deleted = delete_brand(bid)
 
