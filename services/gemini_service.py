@@ -142,7 +142,8 @@ def analyze_face_with_gemini(image_bytes, image_mime=None):
     if not api_key:
         raise ValueError("ไม่พบ GEMINI_API_KEY ในไฟล์ .env")
 
-    model = _get_model(api_key)
+    # ใช้ GEMINI_ANALYZE_MODEL สำหรับ analyze (text output) ถ้าไม่มีให้ใช้ gemini-2.0-flash
+    model = os.getenv("GEMINI_ANALYZE_MODEL", "gemini-2.0-flash").strip() or _get_model(api_key)
     print(f"🔍 Analyzing face with model: {model}")
 
     prompt = (
@@ -246,7 +247,7 @@ def generate_image_with_gemini(image_bytes=None, image_mime=None, prompt=None):
     if not api_key:
         raise ValueError("ไม่พบ GEMINI_API_KEY ในไฟล์ .env")
 
-    # Use dedicated image-generation model; fall back to analyze model
+    # ใช้ GEMINI_IMAGE_MODEL สำหรับ generate image (รองรับ image output)
     image_model = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.0-flash-exp-image-generation").strip()
     print(f"🚀 Image generation model: {image_model}")
 
