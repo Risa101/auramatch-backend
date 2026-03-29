@@ -19,25 +19,12 @@ def list_hairstyles():
 @hairstyle_bp.route("/hairstyles", methods=["POST"])
 @require_admin
 def create_hairstyle():
-    data = request.get_json(silent=True)
+    data = request.get_json(silent=True) or {}
 
-    if not data:
-        return jsonify({"error": "Invalid or empty JSON payload"}), 400
+    if not data.get("hairstyle_name"):
+        return jsonify({"error": "hairstyle_name is required"}), 400
 
-    if "face_id" not in data or "hairstyle_name" not in data:
-        return jsonify({"error": "Missing required fields"}), 400
-
-    try:
-        face_id = int(data["face_id"])
-    except (TypeError, ValueError):
-        return jsonify({"error": "face_id must be integer"}), 400
-
-    hairstyle_name = data["hairstyle_name"]
-
-    new_id = insert_hairstyle(
-        face_id=face_id,
-        hairstyle_name=hairstyle_name
-    )
+    new_id = insert_hairstyle(data)
 
     return jsonify({
         "message": "hairstyle created successfully",
