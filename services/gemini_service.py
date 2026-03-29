@@ -132,7 +132,7 @@ def _call_gemini(api_key, model, body):
         method="POST"
     )
     context = ssl.create_default_context(cafile=certifi.where()) if HAS_CERTIFI else ssl.create_default_context()
-    with urllib.request.urlopen(req, timeout=30, context=context) as resp:
+    with urllib.request.urlopen(req, timeout=90, context=context) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
 

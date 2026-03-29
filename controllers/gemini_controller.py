@@ -52,7 +52,9 @@ def generate_image():
             "image": result.get("data_url"),
         }), 200
     except Exception as exc:
-        return jsonify({"error": str(exc)}), 500
+        import traceback
+        print("❌ generate-image error:", traceback.format_exc())
+        return jsonify({"error": str(exc), "detail": traceback.format_exc()[-500:]}), 500
 
 
 @gemini_bp.route("/gemini/analyze-face", methods=["POST"])
