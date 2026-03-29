@@ -241,50 +241,80 @@ def analyze_face_with_gemini(image_bytes, image_mime=None):
 
 
 def generate_image_with_gemini(image_bytes=None, image_mime=None, prompt=None):
-    """วิเคราะห์/แปลงรูปภาพผ่าน Gemini API"""
+    """Generate a makeup-applied image using Gemini image-generation model."""
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise ValueError("ไม่พบ GEMINI_API_KEY ในไฟล์ .env")
 
-    model = _get_model(api_key)
-    print(f"🚀 กำลังส่งคำขอไปที่รุ่น: {model}")
+    # Use dedicated image-generation model; fall back to analyze model
+    image_model = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.0-flash-exp-image-generation").strip()
+    print(f"🚀 Image generation model: {image_model}")
 
-    final_prompt = (prompt or "Describe this image in Thai.").strip()
+    final_prompt = (
+        prompt or
+        "Apply natural everyday makeup to this exact face photo. Do NOT change the person's face shape, "
+        "bone structure, skin tone, eye shape, nose, lips shape, or any facial features — the person's identity "
+        "must remain 100% identical. Only add: light foundation to even skin tone, soft blush on cheeks, "
+        "subtle neutral eyeshadow, defined brows following their natural arch, thin eyeliner, mascara, and a "
+        "natural lip tint. The result must look like the same real person wearing light makeup. "
+        "Keep the same lighting, angle, background, and photo style. Photo-realistic output only."
+    ).strip()
+
+    parts = [{"text": final_prompt}]
+    if image_bytes:
+        parts.append({
+            "inline_data": {
+                "mime_type": image_mime or "image/jpeg",
+                "data": base64.b64encode(image_bytes).decode("ascii")
+            }
+        })
+
     body = {
-        "contents": [{
-            "parts": [
-                {"text": final_prompt},
-                {
-                    "inline_data": {
-                        "mime_type": image_mime or "image/jpeg",
-                        "data": base64.b64encode(image_bytes).decode("ascii")
-                    }
-                }
-            ]
-        }],
+        "contents": [{"parts": parts}],
         "generationConfig": {
-            "temperature": 0.7,
-            "maxOutputTokens": 2048
+            "responseModalities": ["TEXT", "IMAGE"],
+            "temperature": 1.0,
+            "maxOutputTokens": 8192
         }
     }
 
     try:
-        result = _call_gemini(api_key, model, body)
+        result = _call_gemini(api_key, image_model, body)
 
         if 'promptFeedback' in result and result['promptFeedback'].get('blockReason'):
-            return {"success": False, "text": f"รูปภาพถูกปฏิเสธ: {result['promptFeedback']['blockReason']}"}
+            return {"success": False, "text": f"Image blocked: {result['promptFeedback']['blockReason']}"}
 
+        # Extract generated image from response parts
+        candidates = result.get('candidates', [])
+        if candidates:
+            parts_out = candidates[0].get('content', {}).get('parts', [])
+            for part in parts_out:
+                if 'inlineData' in part or 'inline_data' in part:
+                    img_data = part.get('inlineData') or part.get('inline_data')
+                    img_mime = img_data.get('mimeType') or img_data.get('mime_type', 'image/png')
+                    img_b64 = img_data.get('data', '')
+                    print(f"✅ Got generated image ({img_mime}, {len(img_b64)} chars b64)")
+                    return {
+                        "success": True,
+                        "text": "Makeup applied successfully",
+                        "data_url": f"data:{img_mime};base64,{img_b64}"
+                    }
+
+        # No image in response — fall back to original
         text_response = _extract_text(result)
-        return {
-            "success": True,
-            "text": text_response,
-            "data_url": f"data:{image_mime or 'image/jpeg'};base64,{base64.b64encode(image_bytes).decode('ascii')}" if image_bytes else None
-        }
+        print(f"⚠️ No image in response, returning original. Text: {text_response[:100]}")
+        fallback_url = (
+            f"data:{image_mime or 'image/jpeg'};base64,{base64.b64encode(image_bytes).decode('ascii')}"
+            if image_bytes else None
+        )
+        return {"success": True, "text": text_response, "data_url": fallback_url}
 
     except urllib.error.HTTPError as e:
-        error_msg = e.read().decode("utf-8", errors="ignore")
-        print(f"❌ API Error: {error_msg}")
-        raise RuntimeError(f"API Error {e.code}: {error_msg}")
+        error_body = e.read().decode("utf-8", errors="ignore")
+        print(f"❌ API Error {e.code}: {error_body}")
+        if e.code == 429:
+            raise RuntimeError("QUOTA_EXCEEDED: Gemini API rate limit reached. Try again later.")
+        raise RuntimeError(f"API Error {e.code}: {error_body}")
     except Exception as e:
         print(f"❌ Connection Error: {str(e)}")
-        raise RuntimeError(f"เกิดข้อผิดพลาดในการเชื่อมต่อ: {str(e)}")
+        raise RuntimeError(f"Connection error: {str(e)}")

@@ -38,7 +38,7 @@ def generate_image():
 
     prompt = (request.form.get("prompt") or "").strip()
     if not prompt:
-        prompt = os.getenv("GEMINI_DEFAULT_PROMPT", "Describe this image in Thai.")
+        prompt = os.getenv("GEMINI_DEFAULT_PROMPT", "Apply natural everyday makeup to this exact face photo. Do NOT change the person's face shape, bone structure, skin tone, eye shape, nose, lips shape, or any facial features — the person's identity must remain 100% identical. Only add: light foundation to even skin tone, soft blush on cheeks, subtle neutral eyeshadow, defined brows following their natural arch, thin eyeliner, mascara, and a natural lip tint. The result must look like the same real person wearing light makeup. Keep the same lighting, angle, background, and photo style. Photo-realistic output only.")
 
     try:
         result = generate_image_with_gemini(
