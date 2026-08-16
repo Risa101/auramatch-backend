@@ -232,7 +232,9 @@ def analyze_face_with_gemini(image_bytes, image_mime=None):
 
     except urllib.error.HTTPError as e:
         error_msg = e.read().decode("utf-8", errors="ignore")
-        print(f"❌ API Error: {error_msg}")
+        print(f"❌ API Error {e.code}: {error_msg}")
+        if e.code == 429:
+            raise RuntimeError("QUOTA_EXCEEDED: Gemini API rate limit reached. Try again later.")
         raise RuntimeError(f"API Error {e.code}: {error_msg}")
     except json.JSONDecodeError as e:
         raise RuntimeError(f"ไม่สามารถ parse JSON จาก AI response: {str(e)}")
@@ -314,7 +316,13 @@ def generate_image_with_gemini(image_bytes=None, image_mime=None, prompt=None):
         error_body = e.read().decode("utf-8", errors="ignore")
         print(f"❌ API Error {e.code}: {error_body}")
         if e.code == 429:
-            raise RuntimeError("QUOTA_EXCEEDED: Gemini API rate limit reached. Try again later.")
+            # Quota exceeded — return original image as fallback instead of crashing
+            print("⚠️ Quota exceeded, returning original image as fallback")
+            fallback_url = (
+                f"data:{image_mime or 'image/jpeg'};base64,{base64.b64encode(image_bytes).decode('ascii')}"
+                if image_bytes else None
+            )
+            return {"success": True, "text": "QUOTA_EXCEEDED", "data_url": fallback_url}
         raise RuntimeError(f"API Error {e.code}: {error_body}")
     except Exception as e:
         print(f"❌ Connection Error: {str(e)}")
