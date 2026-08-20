@@ -166,6 +166,69 @@ def get_recommended_products(season, limit=3):
         for r in rows
     ]
 
+# ==========================================
+# 💄 BLUSH PRODUCTS BY UNDERTONE (ใช้โดย undertone_service.py — แทนที่ hardcode palette)
+# ==========================================
+def get_blush_products_by_undertone(undertone, limit=6):
+    """
+    ดึงสินค้าบลัชออนจริงจาก DB ที่เหมาะกับ undertone ("cool" | "warm" | "neutral")
+    อ้างอิงคอลัมน์ suitable_for_color (ค่าจริงใน DB ไม่สม่ำเสมอเรื่องตัวพิมพ์ เช่น
+    "Cool" กับ "warm" ปนกัน จึงเทียบแบบ case-insensitive)
+
+    ถ้า undertone เป็น "unknown" (หรือไม่ตรงกับ cool/warm/neutral) จะดึงบลัชออนทั่วไป
+    แบบสุ่มแทน ไม่ใช้ค่าตายตัวใดๆ ทั้งสิ้น
+    """
+    conn = get_conn()
+    cur = conn.cursor(pymysql.cursors.DictCursor)
+
+    tone = (undertone or "").strip().lower()
+    if tone in ("cool", "warm", "neutral"):
+        sql = """
+            SELECT product_id, name, image_url, price, category,
+                   suitable_for_color, personal_color_tags, shades, links, brand_id
+            FROM products
+            WHERE category = 'blush'
+              AND LOWER(suitable_for_color) = %s
+              AND status = 'active'
+              AND deleted_at IS NULL
+            ORDER BY RAND()
+            LIMIT %s
+        """
+        cur.execute(sql, (tone, limit))
+    else:
+        # undertone ตรวจไม่ได้ (unknown) — ดึงบลัชออนทั่วไปแทน ไม่เดาโทนสีเอง
+        sql = """
+            SELECT product_id, name, image_url, price, category,
+                   suitable_for_color, personal_color_tags, shades, links, brand_id
+            FROM products
+            WHERE category = 'blush'
+              AND status = 'active'
+              AND deleted_at IS NULL
+            ORDER BY RAND()
+            LIMIT %s
+        """
+        cur.execute(sql, (limit,))
+
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    return [
+        {
+            "product_id": r["product_id"],
+            "name": r["name"],
+            "image_url": r["image_url"],
+            "price": float(r["price"]) if r["price"] is not None else None,
+            "category": r["category"],
+            "suitable_for_color": r["suitable_for_color"],
+            "personal_color_tags": r["personal_color_tags"],
+            "shades": r["shades"],
+            "shop_url": r["links"],
+        }
+        for r in rows
+    ]
+
+
 # ===============================
 # ADMIN CRUD
 # ===============================
