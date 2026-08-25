@@ -121,9 +121,11 @@ def recommended_by_season():
         # รับค่า season จาก Query Parameter (เช่น ?season=Spring)
         # หากไม่ส่งมา จะใช้ค่าเริ่มต้นเป็น 'All'
         season = request.args.get("season", "All")
-        
-        # ดึงสินค้าแนะนำโดยจำกัด 3 รายการตามที่หน้าเว็บต้องการ
-        data = get_recommended_products(season, limit=3)
+        category = request.args.get("category")  # เช่น 'lip' — ไม่บังคับ
+        limit = request.args.get("limit", 3, type=int)
+
+        # ดึงสินค้าแนะนำ กรองตาม season (และ category ถ้ามี) จาก DB จริง
+        data = get_recommended_products(season, limit=limit, category=category)
         
         return jsonify({
             "status": "success",

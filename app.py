@@ -38,7 +38,6 @@ def create_app():
         from controllers.analysis_controller import analysis_bp
         from controllers.admin_controller import admin_bp
         from controllers.gemini_controller import gemini_bp
-        from controllers.ml_controller import ml_bp
         from controllers.color_engine_controller import color_engine_bp
         from controllers.undertone_controller import undertone_bp
 
@@ -60,7 +59,6 @@ def create_app():
         app.register_blueprint(admin_bp)
         app.register_blueprint(analysis_bp, url_prefix='/api')
         app.register_blueprint(gemini_bp, url_prefix='/api')
-        app.register_blueprint(ml_bp, url_prefix='/api')
         app.register_blueprint(color_engine_bp, url_prefix='/api')
         app.register_blueprint(undertone_bp, url_prefix='/api')
 

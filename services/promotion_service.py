@@ -88,9 +88,9 @@ def insert_promotion(data):
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """
                 cur.execute(sql, (
-                    data["promo_name"],
-                    data["promo_detail"],
-                    data["brand_id"],
+                    data.get("promo_name"),
+                    data.get("promo_detail"),
+                    data.get("brand_id"),
                     data.get("discount_percent"),
                     data.get("coupon_code"),
                     data.get("min_price"),
@@ -101,7 +101,7 @@ def insert_promotion(data):
                     data.get("end_date"),
                     data.get("status"),
                     data.get("logo_url"),
-                    data["superadmin_id"]
+                    data.get("superadmin_id")
                 ))
                 conn.commit()
                 return cur.lastrowid

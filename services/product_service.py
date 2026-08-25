@@ -123,10 +123,14 @@ def get_best_seller_products():
 # ==========================================
 # ✨ RECOMMENDED PRODUCTS (แก้ไขให้ตรงตามตารางจริง)
 # ==========================================
-def get_recommended_products(season, limit=3):
+def get_recommended_products(season, limit=3, category=None):
     """
     ดึงสินค้าที่ตรงกับ personal_color_tags เช่น 'Spring'
     อ้างอิงข้อมูลจริงจาก DB ที่ใช้รูปแบบ 'Warm,Spring'
+
+    category: กรองตามหมวด (เช่น 'lip') ถ้าไม่ส่งมาจะดึงทุกหมวดเหมือนเดิม —
+    เพิ่มเพื่อให้หน้าเว็บใช้ endpoint เดียวกันดึงสินค้าจริงจาก DB แยกตามหมวดได้
+    (เช่น ลิปที่มีลิงก์ร้านค้าจริง) แทนของ hardcode
     """
     conn = get_conn()
     cur = conn.cursor(pymysql.cursors.DictCursor)
@@ -134,22 +138,29 @@ def get_recommended_products(season, limit=3):
     # แก้ไข seasonTags -> personal_color_tags
     # แก้ไข RANDOM() -> RAND() สำหรับ MySQL
     sql = """
-        SELECT 
-            product_id, 
-            name, 
-            image_url, 
+        SELECT
+            product_id,
+            name,
+            image_url,
             price,
-            category
-        FROM products 
+            category,
+            suitable_for_color,
+            personal_color_tags,
+            shades,
+            links
+        FROM products
         WHERE (personal_color_tags LIKE %s OR personal_color_tags LIKE '%%All%%')
-          AND status = 'active' 
+          AND status = 'active'
           AND deleted_at IS NULL
-        ORDER BY RAND() 
-        LIMIT %s
     """
-    
-    search_term = f"%{season}%"
-    cur.execute(sql, (search_term, limit))
+    params = [f"%{season}%"]
+    if category:
+        sql += " AND category = %s"
+        params.append(category)
+    sql += " ORDER BY RAND() LIMIT %s"
+    params.append(limit)
+
+    cur.execute(sql, tuple(params))
     rows = cur.fetchall()
 
     cur.close()
@@ -160,8 +171,12 @@ def get_recommended_products(season, limit=3):
             "product_id": r["product_id"],
             "name": r["name"],
             "image_url": r["image_url"],
-            "price": float(r["price"]),
-            "category": r["category"]
+            "price": float(r["price"]) if r["price"] is not None else None,
+            "category": r["category"],
+            "suitable_for_color": r["suitable_for_color"],
+            "personal_color_tags": r["personal_color_tags"],
+            "shades": r["shades"],
+            "shop_url": r["links"],
         }
         for r in rows
     ]
@@ -169,7 +184,7 @@ def get_recommended_products(season, limit=3):
 # ==========================================
 # 💄 BLUSH PRODUCTS BY UNDERTONE (ใช้โดย undertone_service.py — แทนที่ hardcode palette)
 # ==========================================
-def get_blush_products_by_undertone(undertone, limit=6):
+def get_blush_products_by_undertone(undertone, limit=4):
     """
     ดึงสินค้าบลัชออนจริงจาก DB ที่เหมาะกับ undertone ("cool" | "warm" | "neutral")
     อ้างอิงคอลัมน์ suitable_for_color (ค่าจริงใน DB ไม่สม่ำเสมอเรื่องตัวพิมพ์ เช่น

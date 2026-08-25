@@ -23,6 +23,16 @@ ellipse kernel, morphology และสูตร ITA ใน estimate_undertone()
 ส่วนคำแนะนำสินค้า: notebook เดิม (cell 9, blush_suggestions()) ใช้ตาราง hex สีตายตัว
 (hardcode) — เปลี่ยนมาดึงสินค้าบลัชออนจริงจาก DB ผ่าน
 product_service.get_blush_products_by_undertone() แทน ไม่มีค่าตายตัวเหลืออยู่แล้ว
+
+เพิ่มเติม: estimate_season()/analyze_season() — แทนที่ RandomForest (ml_service.py,
+เทรนจาก features RGB ล้วน ไม่มี dataset เดิมเหลือให้เทรนใหม่แบบ Lab ได้) ด้วยกฎ
+classical ที่อยู่ใน Lab เหมือนกันทั้งไฟล์ ใช้ ITA (แกน warm/cool อันเดียวกับ
+estimate_undertone) ไขว้กับ L* (แกน light/deep) ตามทฤษฎี 4-season มาตรฐาน:
+warm+light=Spring, warm+deep=Autumn, cool+light=Summer, cool+deep=Winter
+เกณฑ์ ITA=19 (จุดกึ่งกลางของช่วง neutral 10-28 ที่ใช้อยู่แล้ว) และ L*=55 เป็นค่า
+ประมาณทางวิศวกรรม ไม่ได้ calibrate จาก labeled dataset (ไม่มีให้ใช้) เหมือนที่เกณฑ์
+a*/b* ของ simple_skin_mask() ก็ระบุไว้ชัดเจนว่ามาจากไหน — แจ้งไว้ตรงนี้เพื่อความโปร่งใส
+เท่ากัน ยังคงเป็นแค่ fallback ชั้นกลาง (Color Engine ชนะอยู่ดีถ้าทำงานได้)
 """
 
 import math
@@ -31,6 +41,31 @@ import numpy as np
 import cv2 as cv
 
 from services.product_service import get_blush_products_by_undertone
+
+# เกณฑ์แบ่งกลุ่มสำหรับ estimate_season() — ดู docstring ด้านบนสำหรับที่มา
+_SEASON_ITA_SPLIT = 19.0   # >= = cool-leaning, < = warm-leaning
+_SEASON_L_SPLIT = 55.0     # >= = light, < = deep
+
+
+def _skin_lab_mean(bgr: np.ndarray, skin_mask: np.ndarray):
+    """
+    ค่าเฉลี่ย L*/a*/b* (สเกลจริง ไม่ใช่ uint8 ของ OpenCV) เฉพาะพิกเซลผิวตาม mask
+    ใช้ร่วมกันทั้ง estimate_undertone() และ estimate_season() — คำนวณครั้งเดียว
+    ไม่ต้องคัดลอกสูตรแปลง Lab ซ้ำสองที่
+
+    คืนค่า None ถ้าพิกเซลผิวน้อยเกินไปจะเชื่อถือค่าเฉลี่ยไม่ได้ (< 500 พิกเซล)
+    """
+    skin = cv.bitwise_and(bgr, bgr, mask=skin_mask)
+    lab = cv.cvtColor(skin, cv.COLOR_BGR2Lab)
+
+    m = skin_mask > 0
+    if m.sum() < 500:
+        return None
+
+    L = lab[..., 0][m].mean() * (100 / 255.0)
+    a = (lab[..., 1][m].mean() - 128)
+    b = (lab[..., 2][m].mean() - 128)
+    return L, a, b
 
 
 def simple_skin_mask(bgr: np.ndarray) -> np.ndarray:
@@ -79,16 +114,10 @@ def estimate_undertone(bgr: np.ndarray, skin_mask: np.ndarray):
     ประเมิน undertone (cool/warm/neutral) จากภาพ — เหมือน notebook cell 7 ทุกขั้นตอน
     คืนค่า: (undertone, ITA, L*)
     """
-    skin = cv.bitwise_and(bgr, bgr, mask=skin_mask)
-    lab = cv.cvtColor(skin, cv.COLOR_BGR2Lab)
-
-    m = skin_mask > 0
-    if m.sum() < 500:
+    stats = _skin_lab_mean(bgr, skin_mask)
+    if stats is None:
         return "unknown", 0.0, 0.0
-
-    L = lab[..., 0][m].mean() * (100 / 255.0)
-    a = (lab[..., 1][m].mean() - 128)
-    b = (lab[..., 2][m].mean() - 128)
+    L, a, b = stats
 
     ITA = math.degrees(math.atan2((L - 50), b if abs(b) > 1e-3 else 1e-3))
 
@@ -100,6 +129,31 @@ def estimate_undertone(bgr: np.ndarray, skin_mask: np.ndarray):
         tone = "neutral"
 
     return tone, ITA, L
+
+
+def estimate_season(bgr: np.ndarray, skin_mask: np.ndarray):
+    """
+    ประเมิน personal color season (Spring/Summer/Autumn/Winter) จาก Lab ล้วนๆ —
+    แทนที่ RandomForest (RGB features) เดิม ดู docstring ท้ายไฟล์สำหรับที่มาของเกณฑ์
+
+    ไขว้ 2 แกน: warm/cool (มุม ITA เดียวกับ estimate_undertone) กับ light/deep (L*)
+    คืนค่า: (season, ITA, L*)
+    """
+    stats = _skin_lab_mean(bgr, skin_mask)
+    if stats is None:
+        return "unknown", 0.0, 0.0
+    L, a, b = stats
+
+    ITA = math.degrees(math.atan2((L - 50), b if abs(b) > 1e-3 else 1e-3))
+    is_cool = ITA >= _SEASON_ITA_SPLIT
+    is_light = L >= _SEASON_L_SPLIT
+
+    if is_cool:
+        season = "Summer" if is_light else "Winter"
+    else:
+        season = "Spring" if is_light else "Autumn"
+
+    return season, ITA, L
 
 
 def analyze_undertone(image_bytes: bytes) -> dict:
@@ -136,4 +190,36 @@ def analyze_undertone(image_bytes: bytes) -> dict:
         "l_star": round(float(l_star), 2),
         "skin_pixel_count": int((mask > 0).sum()),
         "recommended_products": products,
+    }
+
+
+def analyze_season(image_bytes: bytes) -> dict:
+    """
+    Entry point สำหรับ controller — วิเคราะห์ personal color season จาก Lab ล้วนๆ
+    แทนที่ RandomForest (services/ml_service.py, ถูกลบแล้ว) ดู estimate_season()
+
+    Args:
+        image_bytes: รูปภาพในรูปแบบ bytes
+
+    Returns:
+        dict {
+            season: "Spring" | "Summer" | "Autumn" | "Winter" | "unknown",
+            ita: float (องศา),
+            l_star: float (0-100, ความสว่างผิว),
+            skin_pixel_count: int,
+        }
+    """
+    file_bytes = np.frombuffer(image_bytes, np.uint8)
+    bgr = cv.imdecode(file_bytes, cv.IMREAD_COLOR)
+    if bgr is None:
+        raise ValueError("ไม่สามารถอ่านไฟล์รูปภาพได้ (รูปแบบไฟล์ไม่ถูกต้องหรือเสียหาย)")
+
+    mask = simple_skin_mask(bgr)
+    season, ita, l_star = estimate_season(bgr, mask)
+
+    return {
+        "season": season,
+        "ita": round(float(ita), 2),
+        "l_star": round(float(l_star), 2),
+        "skin_pixel_count": int((mask > 0).sum()),
     }
