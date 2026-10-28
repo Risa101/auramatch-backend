@@ -12,6 +12,8 @@ def create_app():
     frontend_url = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173").rstrip("/")
     allowed_origins = [
         frontend_url,
+        # production frontend, kept even if FRONTEND_BASE_URL is mis-set on the host
+        "https://auramatch-3.vercel.app",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:5174",
