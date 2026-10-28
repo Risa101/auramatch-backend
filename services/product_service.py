@@ -1,5 +1,27 @@
 from db import get_conn
 import pymysql.cursors
+from services.product_platform_service import (
+    get_platforms_for_products,
+    serialize_platform_row,
+)
+
+
+def _attach_platforms(rows):
+    """เติมฟิลด์ `platforms` (list ของ {platform, product_url, ...}) ให้แต่ละแถวสินค้า
+
+    Additive เท่านั้น — ไม่แก้ไขฟิลด์เดิมของ products/`shop_url` เลย เพื่อไม่ให้
+    หน้าเว็บที่ยังใช้ p.shop_url แบบเดิม (ลิงก์เดียว) พังไป ส่วนหน้าที่รองรับ
+    หลายแพลตฟอร์มแล้วจะอ่านจาก p.platforms แทน
+    """
+    if not rows:
+        return rows
+    product_ids = [r.get("product_id") for r in rows if r.get("product_id")]
+    grouped = get_platforms_for_products(product_ids)
+    for row in rows:
+        pid = row.get("product_id")
+        row["platforms"] = [serialize_platform_row(p) for p in grouped.get(pid, [])]
+    return rows
+
 
 # ===============================
 # GET ALL PRODUCTS
@@ -21,7 +43,7 @@ def get_all_products():
 
     cur.close()
     conn.close()
-    return rows
+    return _attach_platforms(rows)
 
 # ===============================
 # GET ALL PRODUCTS (ADMIN)
@@ -41,7 +63,7 @@ def get_all_products_admin():
 
     cur.close()
     conn.close()
-    return rows
+    return _attach_platforms(rows)
 
 
 # ===============================
@@ -68,7 +90,8 @@ def get_product_by_id(product_id):
             # แปลงค่า Decimal (เช่น ราคา) เป็น float เพื่อให้ส่งออก JSON ได้ง่าย
             if 'price' in row and row['price'] is not None:
                 row['price'] = float(row['price'])
-                
+
+            _attach_platforms([row])
             return row
     finally:
         # มั่นใจว่าการเชื่อมต่อจะถูกปิดเสมอแม้เกิด Error
@@ -108,7 +131,7 @@ def get_best_seller_products():
     cur.close()
     conn.close()
 
-    return [
+    return _attach_platforms([
         {
             "product_id": r["product_id"],
             "name": r["name"],
@@ -117,7 +140,7 @@ def get_best_seller_products():
             "total_sold": int(r["total_sold"]),
         }
         for r in rows
-    ]
+    ])
 
 
 # ==========================================
@@ -166,7 +189,7 @@ def get_recommended_products(season, limit=3, category=None):
     cur.close()
     conn.close()
 
-    return [
+    return _attach_platforms([
         {
             "product_id": r["product_id"],
             "name": r["name"],
@@ -179,7 +202,7 @@ def get_recommended_products(season, limit=3, category=None):
             "shop_url": r["links"],
         }
         for r in rows
-    ]
+    ])
 
 # ==========================================
 # 💄 BLUSH PRODUCTS BY UNDERTONE (ใช้โดย undertone_service.py — แทนที่ hardcode palette)
@@ -228,7 +251,7 @@ def get_blush_products_by_undertone(undertone, limit=4):
     cur.close()
     conn.close()
 
-    return [
+    return _attach_platforms([
         {
             "product_id": r["product_id"],
             "name": r["name"],
@@ -241,7 +264,7 @@ def get_blush_products_by_undertone(undertone, limit=4):
             "shop_url": r["links"],
         }
         for r in rows
-    ]
+    ])
 
 
 # ===============================
@@ -288,10 +311,9 @@ def insert_product(data: dict):
     cur = conn.cursor()
     cur.execute(sql, values)
     conn.commit()
-    new_id = cur.lastrowid
     cur.close()
     conn.close()
-    return new_id
+    return payload["product_id"]
 
 
 def update_product(product_id: int, data: dict):

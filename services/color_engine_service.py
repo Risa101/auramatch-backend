@@ -1,9 +1,23 @@
 """
 color_engine_service.py
 
-Proxy to the auramatchgenz color-engine (FastAPI, MediaPipe + CIELAB pipeline).
-Runs as a separate service (see COLOR_ENGINE_URL) — this project's own DB/auth
-are untouched; we only forward the image and normalize the JSON shape.
+DEPRECATED — superseded by services/personal_color_service.py.
+
+This proxied to a separately-hosted auramatchgenz FastAPI service via
+COLOR_ENGINE_URL, which defaulted (and in this project's checked-in .env,
+still defaults) to http://127.0.0.1:8010 — a manual local `uvicorn` process,
+never an actually-deployed second Railway service. In production this call
+always raised ColorEngineUnavailable and was silently swallowed by the
+frontend (see the AI accuracy audit, Critical Finding #2): the most
+scientifically rigorous classifier in the whole system never ran for a real
+user.
+
+services/personal_color_service.py fixes this by porting the same math
+(white balance, landmark-restricted skin mask, CIELAB/CIEDE2000, ranked
+season scoring) directly into this process — no second service, no
+COLOR_ENGINE_URL, no silent-fallback risk. /api/color-engine/analyze and this
+module are kept only for backward compatibility with any other caller that
+might still hit this route; do not add new consumers.
 """
 
 import os

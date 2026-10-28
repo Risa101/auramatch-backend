@@ -1,0 +1,13 @@
+# Isolated requirements for scripts/export_landmarks.py ONLY.
+#
+# Do NOT `pip install -r` this into backend_auramatch/.venv (the production
+# app's environment, also used by `pytest tests/`). mediapipe pulls in
+# opencv-contrib-python, which collides with that venv's
+# opencv-python-headless (same `cv2` import, different wheel -- see
+# ../requirements.txt's scikit-learn comment for the full explanation).
+#
+# Setup:
+#   python3 -m venv .venv-landmarks
+#   .venv-landmarks/bin/pip install -r scripts/requirements-landmarks.txt
+
+mediapipe>=0.10.14

@@ -137,7 +137,21 @@ def _call_gemini(api_key, model, body):
 
 
 def analyze_face_with_gemini(image_bytes, image_mime=None):
-    """วิเคราะห์โครงหน้าและ personal color season จากรูปภาพ"""
+    """แนะนำสไตล์แต่งหน้า (brows/eyes/nose/lips) จากรูปภาพ
+
+    NOTE: this used to also ask Gemini for `season` and `faceShape`, but the
+    frontend unconditionally overwrote both with face-api.js's and the Lab
+    classifier's own answers on every single call — Gemini's season/shape
+    guess never once reached a user (see the AI accuracy audit, Critical
+    Finding #7). Dropped from the prompt/contract entirely: personal color
+    season now comes from exactly one source (services/personal_color_
+    service.py, an objective CIELAB measurement) and face shape from
+    MediaPipe landmark geometry (src/utils/faceGeometry.js) — never from an
+    LLM's subjective read of a photo. This also cuts the request's
+    maxOutputTokens need and reduces how often this rate-limited endpoint
+    (30/hour, see gemini_controller.py) gets hit for values that were
+    thrown away anyway.
+    """
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise ValueError("ไม่พบ GEMINI_API_KEY ในไฟล์ .env")
@@ -147,17 +161,14 @@ def analyze_face_with_gemini(image_bytes, image_mime=None):
     print(f"🔍 Analyzing face with model: {model}")
 
     prompt = (
-        "Analyze this face photo carefully. Determine:\n"
-        "1. Personal color season based on skin undertone, hair color, and overall coloring. "
-        "Choose EXACTLY ONE from: Spring, Summer, Autumn, Winter\n"
-        "2. Face shape. Choose EXACTLY ONE from: Oval, Round, Square, Heart, Diamond, Rectangle\n"
-        "3. Recommended makeup based on the face features:\n"
+        "Analyze this face photo carefully and recommend makeup styling based on the "
+        "face features (NOT skin color or face shape — those are measured elsewhere):\n"
         "   - brows: choose ONE from [softArch, straight, arched]\n"
         "   - eyes: choose ONE from [natural, cat, dolly]\n"
         "   - nose: choose ONE from [softContour, definedContour, natural]\n"
         "   - lips: choose ONE from [gradient, full, soft]\n\n"
         "Return ONLY a valid JSON object with NO other text, NO markdown, NO explanation:\n"
-        '{"season":"...","faceShape":"...","face":{"brows":"...","eyes":"...","nose":"...","lips":"..."}}'
+        '{"face":{"brows":"...","eyes":"...","nose":"...","lips":"..."}}'
     )
 
     body = {
@@ -193,21 +204,11 @@ def analyze_face_with_gemini(image_bytes, image_mime=None):
 
         data = json.loads(json_match.group())
 
-        # validate + fallback ค่าที่ได้
-        valid_seasons = {"Spring", "Summer", "Autumn", "Winter"}
-        valid_shapes = {"Oval", "Round", "Square", "Heart", "Diamond", "Rectangle"}
+        # validate + fallback ค่าที่ได้ (ไม่ปล่อยให้ค่าที่ AI ตอบผิด enum หลุดไปถึง UI)
         valid_brows = {"softArch", "straight", "arched"}
         valid_eyes = {"natural", "cat", "dolly"}
         valid_nose = {"softContour", "definedContour", "natural"}
         valid_lips = {"gradient", "full", "soft"}
-
-        season = data.get("season", "Spring")
-        if season not in valid_seasons:
-            season = "Spring"
-
-        face_shape = data.get("faceShape", "Oval")
-        if face_shape not in valid_shapes:
-            face_shape = "Oval"
 
         face = data.get("face", {})
         brows = face.get("brows", "softArch")
@@ -225,8 +226,6 @@ def analyze_face_with_gemini(image_bytes, image_mime=None):
 
         return {
             "success": True,
-            "season": season,
-            "faceShape": face_shape,
             "face": {"brows": brows, "eyes": eyes, "nose": nose, "lips": lips}
         }
 

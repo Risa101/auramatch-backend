@@ -1,6 +1,13 @@
 # services/promotion_service.py
 from db import get_conn
 
+
+def _none_if_empty(value):
+    """เปลี่ยนค่าว่าง '' เป็น None เช่น start_date/end_date/coupon_code ที่ MySQL รับ '' ไม่ได้"""
+    if value == "" or value is None:
+        return None
+    return value
+
 # =========================
 # GET : โปรโมชั่นทั้งหมด
 # =========================
@@ -92,13 +99,13 @@ def insert_promotion(data):
                     data.get("promo_detail"),
                     data.get("brand_id"),
                     data.get("discount_percent"),
-                    data.get("coupon_code"),
+                    _none_if_empty(data.get("coupon_code")),
                     data.get("min_price"),
                     data.get("max_discount"),
                     data.get("promo_type"),
                     data.get("season"),
-                    data.get("start_date"),
-                    data.get("end_date"),
+                    _none_if_empty(data.get("start_date")),
+                    _none_if_empty(data.get("end_date")),
                     data.get("status"),
                     data.get("logo_url"),
                     data.get("superadmin_id")
@@ -140,13 +147,13 @@ def update_promotion(pid, data):
                     data.get("promo_detail"),
                     data.get("brand_id"),
                     data.get("discount_percent"),
-                    data.get("coupon_code"),
+                    _none_if_empty(data.get("coupon_code")),
                     data.get("min_price"),
                     data.get("max_discount"),
                     data.get("promo_type"),
                     data.get("season"),
-                    data.get("start_date"),
-                    data.get("end_date"),
+                    _none_if_empty(data.get("start_date")),
+                    _none_if_empty(data.get("end_date")),
                     data.get("status"),
                     data.get("logo_url"),
                     pid

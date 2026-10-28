@@ -16,12 +16,15 @@ def create_app():
         "http://127.0.0.1:5173",
         "http://localhost:5174",
         "http://127.0.0.1:5174",
+        "http://localhost:5177",
+        "http://127.0.0.1:5177",
     ]
     CORS(app, resources={r"/*": {"origins": allowed_origins}})
 
     try:
         # นำเข้า Blueprint จาก Controller ต่างๆ
         from controllers.product_controller import products_bp
+        from controllers.product_platform_controller import product_platform_bp
         from controllers.favorite_controller import favorite_bp
         from controllers.hairstyle_controller import hairstyle_bp
         from controllers.productcolor_controller import productcolor_bp
@@ -40,9 +43,11 @@ def create_app():
         from controllers.gemini_controller import gemini_bp
         from controllers.color_engine_controller import color_engine_bp
         from controllers.undertone_controller import undertone_bp
+        from controllers.personal_color_controller import personal_color_bp
 
         # ลงทะเบียน Blueprints
         app.register_blueprint(products_bp)
+        app.register_blueprint(product_platform_bp)
         app.register_blueprint(favorite_bp)
         app.register_blueprint(hairstyle_bp)
         app.register_blueprint(productcolor_bp)
@@ -59,8 +64,9 @@ def create_app():
         app.register_blueprint(admin_bp)
         app.register_blueprint(analysis_bp, url_prefix='/api')
         app.register_blueprint(gemini_bp, url_prefix='/api')
-        app.register_blueprint(color_engine_bp, url_prefix='/api')
-        app.register_blueprint(undertone_bp, url_prefix='/api')
+        app.register_blueprint(color_engine_bp, url_prefix='/api')  # deprecated, see controllers/color_engine_controller.py
+        app.register_blueprint(undertone_bp, url_prefix='/api')  # /undertone/analyze kept for any other consumer; /season/analyze superseded below
+        app.register_blueprint(personal_color_bp, url_prefix='/api')
 
         print("✅ All controllers loaded successfully")
 

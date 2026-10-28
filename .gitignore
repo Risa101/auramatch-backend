@@ -8,3 +8,8 @@ service_account.json
 *.json
 !requirements*.txt
 .DS_Store
+
+# local-only: datasets with face photos, landmark venv, model binaries
+evaluation_dataset/
+.venv-landmarks/
+scripts/models/
