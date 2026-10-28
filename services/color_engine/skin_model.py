@@ -4,15 +4,15 @@ skin_model.py
 Season classifier trained on skin color only: multinomial logistic regression
 over the six numbers extract_skin_features() already returns (L*, a*, b*,
 chroma, hue angle, ITA). Trained on the Deep Armocromia TRAIN partition
-(expert labels) plus 71 Thai adult photos labeled with colorwise.me, the Thai
+(expert labels) plus 73 Thai adult photos labeled with colorwise.me, the Thai
 photos weighted x20 (personal_color_ai/skin_model/train_skin_model.py and
 colorwise_thai/README.md). Coefficients below are copied from that fit.
 
 Held-out results:
   Thai adults, 4-fold CV x10 (Thai photos never in their own test fold):
-      acc 54.1%, balanced 47.1%   (Armocromia-only model: 48.0% / 38.0%;
+      acc 52.1%, balanced 44.5%   (Armocromia-only model: 48.0% / 38.9%;
       classical season.py: 28.6% / 33.5%)
-  Deep Armocromia TEST (n=910): acc 35.6%, balanced 36.3% (classical 27.4%)
+  Deep Armocromia TEST (n=910): acc 36.3%, balanced 37.0% (classical 27.4%)
 
 Pure Python (no numpy/sklearn at inference) so it adds nothing to the deploy.
 """
@@ -23,15 +23,15 @@ import math
 CLASSES = ("spring", "summer", "autumn", "winter")
 FEATURES = ("L", "a", "b", "chroma", "hue_angle", "ita")
 
-_MEAN = [72.32122387, 7.80057760, 13.53156222, 16.55729199, 71.63693010, 55.59836721]
-_SCALE = [11.79201316, 7.10649001, 9.13397193, 10.18527919, 49.80038908, 29.52555367]
+_MEAN = [72.32059103, 7.80188000, 13.53043859, 16.55691727, 71.62453571, 55.60164100]
+_SCALE = [11.78901755, 7.10516979, 9.13196765, 10.18267456, 49.79162148, 29.51864652]
 _COEF = [
-    [0.11406394, -0.07905208, -0.09522863, 0.08426837, -0.05117327, -0.08158636],
-    [-0.04713596, 0.34648564, -0.04022643, -0.33914323, 0.02259948, 0.40325976],
-    [-0.16081651, -0.08415197, 0.72246357, -0.33436768, 0.07568289, -0.10675170],
-    [0.09388853, -0.18328159, -0.58700850, 0.58924255, -0.04710910, -0.21492170],
+    [0.12257092, -0.07392966, -0.07321110, 0.05901153, -0.04439600, -0.09326024],
+    [-0.03648748, 0.35002235, -0.02317917, -0.36458588, 0.02915713, 0.38405705],
+    [-0.16838607, -0.10741546, 0.61916186, -0.21791884, 0.05578400, -0.08810463],
+    [0.08230263, -0.16867723, -0.52277159, 0.52349319, -0.04054513, -0.20269217],
 ]
-_INTERCEPT = [0.06126122, -0.04342929, -0.06355699, 0.04572506]
+_INTERCEPT = [0.05943689, -0.04530525, -0.05856669, 0.04443504]
 
 
 def feature_vector(features: dict) -> list[float]:
