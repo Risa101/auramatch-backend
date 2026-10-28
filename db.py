@@ -78,6 +78,12 @@ def _get_db_config():
         "autocommit": True,
     }
 
+    # TiDB Cloud และ MySQL บน cloud ส่วนใหญ่บังคับใช้ TLS -- เปิดด้วย DB_SSL=true
+    if _pick_env("DB_SSL", default="").lower() in {"1", "true", "yes"}:
+        import certifi
+
+        config["ssl"] = {"ca": certifi.where()}
+
     missing = [key for key in ("user", "database") if not config.get(key)]
     if missing:
         raise RuntimeError(
