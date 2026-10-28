@@ -39,7 +39,8 @@ import cv2 as cv
 
 from services.color_engine.skin_mask import build_skin_mask
 from services.color_engine.extract import extract_skin_features
-from services.color_engine.season import decide_season
+from services.color_engine.season import DEFAULT_MODEL, _sub_tone, decide_season
+from services.color_engine.skin_model import predict_season
 from services.product_service import get_blush_products_by_undertone
 
 # Season/subclass -> warm|cool, per season.py's own _SEASON_TARGETS
@@ -117,6 +118,23 @@ def analyze_personal_color(image_bytes: bytes, landmarks_norm) -> dict:
     ranked = [{"season": s.capitalize(), "probability": p} for s, p in decision.ranked]
     warm_cool_axis = {"label": decision.warm_cool, "score": decision.warm_cool_score}
     flags = list(decision.flags)
+    engine = os.getenv("PERSONAL_COLOR_ENGINE", "skin_model")
+
+    # Default decision step: logistic regression trained on skin color only
+    # (services/color_engine/skin_model.py) -- beat the hand-set season.py
+    # thresholds on both held-out sets (Deep Armocromia TEST and Thai adults).
+    # Same override scope as the AI engine below; light_deep/bright_mute stay
+    # from the classical axes and drive the sub-tone.
+    if engine == "skin_model":
+        model_ranked = predict_season(features)
+        season_key = model_ranked[0][0]
+        season_title = season_key.capitalize()
+        sub_tone = _sub_tone(season_key, value=decision.light_deep_score, bright=decision.bright_mute_score, model=DEFAULT_MODEL)
+        confidence = model_ranked[0][1]
+        ranked = [{"season": s.capitalize(), "probability": p} for s, p in model_ranked]
+        undertone = _SEASON_UNDERTONE[season_key]
+        warm_cool_axis = {"label": undertone, "score": None}
+        flags.append("skin_model: season/sub_tone/confidence/ranked_seasons/undertone from skin-color logistic regression")
 
     # Optional AI decision step (personal_color_ai/'s tf_efficientnetv2_l,
     # 53.7% TEST accuracy, no season-collapse -- see
@@ -124,7 +142,7 @@ def analyze_personal_color(image_bytes: bytes, landmarks_norm) -> dict:
     # Overrides season/sub_tone/confidence/ranked_seasons/undertone/
     # axes.warm_cool -- NOT light_deep/bright_mute, which are independent of
     # hue_angle and stay from the classical extraction either way.
-    if os.getenv("PERSONAL_COLOR_ENGINE", "classical") == "ai":
+    if engine == "ai":
         try:
             from services.color_engine.ai_season import predict_ai
 
