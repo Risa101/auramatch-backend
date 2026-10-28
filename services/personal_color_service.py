@@ -52,6 +52,7 @@ from services.product_service import get_blush_products_by_undertone
 _SEASON_UNDERTONE = {"spring": "warm", "autumn": "warm", "summer": "cool", "winter": "cool"}
 
 MIN_LANDMARKS = 468
+MAX_SIDE = 640  # px, longest image side analysed (memory cap, see _decode_image)
 
 
 class InvalidLandmarks(ValueError):
@@ -63,6 +64,14 @@ def _decode_image(image_bytes: bytes) -> np.ndarray:
     bgr = cv.imdecode(file_bytes, cv.IMREAD_COLOR)
     if bgr is None:
         raise ValueError("ไม่สามารถอ่านไฟล์รูปภาพได้ (รูปแบบไฟล์ไม่ถูกต้องหรือเสียหาย)")
+    # Phone photos (12 MP+) pushed the float pipeline past the 512 MB free
+    # Render instance and the worker was OOM-killed. Landmarks are normalized,
+    # so shrinking the longest side to MAX_SIDE changes nothing else (season
+    # probabilities moved <1% on test photos; peak RSS ~300 MB instead of ~1 GB).
+    h, w = bgr.shape[:2]
+    if max(h, w) > MAX_SIDE:
+        s = MAX_SIDE / max(h, w)
+        bgr = cv.resize(bgr, (round(w * s), round(h * s)), interpolation=cv.INTER_AREA)
     return bgr
 
 
